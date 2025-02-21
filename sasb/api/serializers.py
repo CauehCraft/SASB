@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.core.exceptions import ValidationError
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from ..models import (
     Cliente,
     Funcionario,
@@ -12,15 +13,57 @@ from ..models import (
 
 
 class ClienteSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(
+        required=True,
+        validators=[UnicodeUsernameValidator()],
+    )
+    password = serializers.CharField(write_only=True)
+
     class Meta:
         model = Cliente
-        fields = ['id', 'nome', 'email', 'telefone', 'fidelidade_pontos']
+        fields = ['id', 'username', 'password', 'nome', 'email', 'telefone', 'fidelidade_pontos']
+        extra_kwargs = {'password': {'write_only': True}} # Faz não retornar a senha.
+
+    def create(self, validated_data):
+        user = Cliente.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data.get('email', ''),  # email opcional
+            password=validated_data['password'],
+            nome=validated_data['nome'],
+            telefone=validated_data['telefone'],
+        )
+        if 'fidelidade_pontos' in validated_data:
+            user.fidelidade_pontos = validated_data['fidelidade_pontos']
+        user.save()
+        return user
+
 
 
 class FuncionarioSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(
+        required=True,
+        validators=[UnicodeUsernameValidator()],
+    )
+    password = serializers.CharField(write_only=True)
+
     class Meta:
         model = Funcionario
-        fields = ['id', 'nome', 'email', 'telefone', 'cargo', 'horario_trabalho']
+        fields = ['id', 'username', 'password', 'nome', 'email', 'telefone', 'cargo', 'horario_trabalho']
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        user = Funcionario.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+            email=validated_data.get('email', ''),
+            nome=validated_data['nome'],
+            telefone=validated_data['telefone'],
+            cargo=validated_data['cargo'],
+            horario_trabalho=validated_data['horario_trabalho'],
+        )
+        user.save()
+        return user
+
 
 
 class ServicoSerializer(serializers.ModelSerializer):

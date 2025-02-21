@@ -69,8 +69,11 @@ class SASBTestCase(APITestCase):
         self.funcionario.servicos.add(self.servico)
 
         # Criar horário
+        self.horario_data = timezone.now().replace(
+            hour=10, minute=0, second=0, microsecond=0
+        ) + timedelta(days=1) 
         self.horario = Horario.objects.create(
-            data=timezone.now() + timedelta(days=1),
+            data=self.horario_data,
             disponivel=True
         )
 
@@ -127,7 +130,7 @@ class SASBTestCase(APITestCase):
     def test_5_criar_agendamento(self):
         """Teste de criação de agendamento"""
         data = {
-            'data': (timezone.now() + timedelta(days=1)).isoformat(),
+            'data': self.horario_data.isoformat(),  # Usando self.horario_data agora
             'cliente': self.cliente.id,
             'servico': self.servico.id,
             'horario': self.horario.id,
@@ -139,17 +142,18 @@ class SASBTestCase(APITestCase):
 
     def test_6_confirmar_agendamento(self):
         """Teste de confirmação de agendamento"""
-        # Primeiro cria um agendamento
         agendamento = Agendamento.objects.create(
-            data=timezone.now() + timedelta(days=1),
+            data=self.horario_data,  # Data controlada
             cliente=self.cliente,
             servico=self.servico,
             horario=self.horario,
             funcionario=self.funcionario,
             status='AGENDADO'
         )
-        
-        response = self.client.post(f'/api/agendamentos/{agendamento.id}/confirmar/')
+
+        response = self.client.post(
+            f'/api/agendamentos/{agendamento.id}/confirmar/'
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         agendamento.refresh_from_db()
         self.assertEqual(agendamento.status, 'CONFIRMADO')
@@ -199,18 +203,21 @@ class SASBTestCase(APITestCase):
     def test_11_cancelar_agendamento(self):
         """Teste de cancelamento de agendamento"""
         agendamento = Agendamento.objects.create(
-            data=timezone.now() + timedelta(days=1),
+            data=self.horario_data,
             cliente=self.cliente,
             servico=self.servico,
             horario=self.horario,
             funcionario=self.funcionario,
             status='AGENDADO'
         )
-        
-        response = self.client.post(f'/api/agendamentos/{agendamento.id}/cancelar/')
+
+        response = self.client.post(
+            f'/api/agendamentos/{agendamento.id}/cancelar/'
+        )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         agendamento.refresh_from_db()
         self.assertEqual(agendamento.status, 'CANCELADO')
+        self.assertTrue(agendamento.horario.disponivel)
 
     def test_12_deletar_servico(self):
         """Teste de exclusão de serviço"""
@@ -297,10 +304,10 @@ class SASBTestCase(APITestCase):
     def test_18_fluxo_agendamento_completo(self):
         """Teste do fluxo completo de agendamento"""
         # Criar Horario
-        horario_teste = Horario.objects.create(
-            data=timezone.now() + timedelta(days=1),
-            disponivel=True
-        )
+        # horario_teste = Horario.objects.create(
+        #     data=timezone.now() + timedelta(days=1),
+        #     disponivel=True
+        # )
         # Buscar horários disponíveis
         response = self.client.get(
             '/api/agendamento-processo/buscar_horarios_disponiveis/',
@@ -314,7 +321,7 @@ class SASBTestCase(APITestCase):
         response = self.client.get(
             '/api/agendamento-processo/buscar_profissionais_disponiveis/',
             {
-                'horario_id': horario_teste.id,
+                'horario_id': self.horario.id, # TESTESTESTE
                 'servico_id': self.servico.id
             }
         )
@@ -327,7 +334,7 @@ class SASBTestCase(APITestCase):
             '/api/agendamento-processo/criar_agendamento/',
             {
                 'servico_id': self.servico.id,
-                'horario_id': horario_teste.id,
+                'horario_id': self.horario.id,
                 'funcionario_id': funcionario_id
             }
         )
